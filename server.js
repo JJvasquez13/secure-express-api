@@ -8,6 +8,7 @@ const cookieParser = require('cookie-parser');
 const mongoSanitize = require('express-mongo-sanitize');
 const xss = require('xss-clean');
 const compression = require('compression');
+const csrf = require('csurf');
 const connectDB = require('./config/db');
 const validateEnv = require('./config/env');
 const authRoutes = require('./routes/authRoutes');
@@ -29,16 +30,28 @@ app.use(mongoSanitize());
 app.use(xss());
 app.use(compression());
 
-// Rate limiting
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
+// Global rate limiter (general protection)
+const globalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
 });
-app.use(limiter);
+app.use(globalLimiter);
 
-// Body parser and cookie parser
-app.use(express.json({ limit: '10kb' }));
+// CSRF protection
+const csrfProtection = csrf({ cookie: true });
 app.use(cookieParser());
+app.use(csrfProtection);
+app.use((req, res, next) => {
+    res.cookie('XSRF-TOKEN', req.csrfToken(), {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+    });
+    next();
+});
+
+// Body parser
+app.use(express.json({ limit: '10kb' }));
 
 // CORS configuration
 app.use(
@@ -53,6 +66,9 @@ if (process.env.NODE_ENV === 'development') {
     app.use(morgan('dev'));
 }
 
+// Hide X-Powered-By header
+app.disable('x-powered-by');
+
 // Connect to MongoDB
 connectDB();
 
@@ -64,7 +80,9 @@ app.use('/users', userRoutes);
 // Error handling middleware
 app.use(errorHandler);
 
+// ot just localhost
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    logger.info(`Server running on port ${PORT}`);
+const HOST = 'localhost';
+app.listen(PORT, HOST, () => {
+    logger.info(`Server running on http://${HOST}:${PORT}`);
 });
