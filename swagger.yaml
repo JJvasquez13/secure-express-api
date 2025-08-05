@@ -1,0 +1,317 @@
+openapi: 3.0.3
+info:
+  title: Secure Express API
+  description: A secure Express.js API with MongoDB and JWT authentication for user management.
+  version: 1.0.0
+servers:
+  - url: http://localhost:5000/
+    description: Local development server
+  - url: https://your-production-url/
+    description: Production server
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: token
+      description: JWT token stored in an HTTP-only cookie for authentication.
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The user's unique ID.
+          example: 507f1f77bcf86cd799439011
+        username:
+          type: string
+          description: The user's username.
+          example: testuser
+        email:
+          type: string
+          description: The user's email address.
+          example: test@example.com
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [error]
+          example: error
+        message:
+          type: string
+          example: Something went wrong!
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              msg:
+                type: string
+              param:
+                type: string
+              location:
+                type: string
+              value:
+                type: string
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          description: User's username (min 3 characters).
+          example: testuser
+        email:
+          type: string
+          description: User's email address.
+          example: test@example.com
+        password:
+          type: string
+          description: User's password (min 6 characters).
+          example: secure123
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          description: User's email address.
+          example: test@example.com
+        password:
+          type: string
+          description: User's password.
+          example: secure123
+    UpdateUserRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          description: New username (optional, min 3 characters).
+          example: newusername
+        email:
+          type: string
+          description: New email address (optional).
+          example: newemail@example.com
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      description: Creates a new user account and returns a JWT in an HTTP-only cookie.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict
+        '400':
+          description: Invalid input or email already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/login:
+    post:
+      summary: Log in a user
+      description: Authenticates a user and returns a JWT in an HTTP-only cookie.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict
+        '400':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/logout:
+    post:
+      summary: Log out a user
+      description: Clears the JWT cookie to log out the user.
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Logged out successfully
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: token=; HttpOnly; Secure; SameSite=Strict; Max-Age=0
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /users/profile:
+    get:
+      summary: Get user profile
+      description: Retrieves the authenticated user's profile.
+      tags:
+        - User
+      security:
+        - cookieAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+        '401':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      summary: Update user profile
+      description: Updates the authenticated user's username or email.
+      tags:
+        - User
+      security:
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Not authorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
