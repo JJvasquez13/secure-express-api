@@ -36,7 +36,7 @@ Configurar variables de entorno:Crea un archivo .env en la raíz del proyecto co
 MONGO_URI=mongodb://localhost:27017/Security_JJ
 JWT_SECRET=6a106c6b37e40ffbe031bc99a51f0f37a9dc231d91d2d68b3a80e0de7df2e6bf
 FRONTEND_URL=http://localhost:3001
-PORT=5003
+PORT=5002
 NODE_ENV=development
 
 
