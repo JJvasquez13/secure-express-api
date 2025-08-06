@@ -33,10 +33,10 @@ npm install
 
 
 Configurar variables de entorno:Crea un archivo .env en la raíz del proyecto con el siguiente contenido:
-MONGO_URI=mongodb://0.0.0.0:27017/Security_JJ
+MONGO_URI=mongodb://localhost:27017/Security_JJ
 JWT_SECRET=6a106c6b37e40ffbe031bc99a51f0f37a9dc231d91d2d68b3a80e0de7df2e6bf
-FRONTEND_URL=http://0.0.0.0:3000
-PORT=5000
+FRONTEND_URL=http://localhost:3001
+PORT=5002
 NODE_ENV=development
 
 
@@ -68,29 +68,29 @@ En modo desarrollo (con reinicio automático):npm run dev
 
 Acceder a la documentación:
 
-Abre http://0.0.0.0:5000/api-docs en tu navegador para ver la documentación Swagger de la API.
+Abre http://localhost:5000/api-docs en tu navegador para ver la documentación Swagger de la API.
 
 
 Endpoints disponibles:
 
-POST /auth/register: Registrar un nuevo usuario.curl -X POST http://0.0.0.0:5000/auth/register \
+POST /auth/register: Registrar un nuevo usuario.curl -X POST http://localhost:5000/auth/register \
 -H "Content-Type: application/json" \
 -d '{"username":"Juan","email":"vjuanjose@gmail.com","password":"juanjuan123"}'
 
 
-POST /auth/login: Iniciar sesión y obtener un JWT.curl -X POST http://0.0.0.0:5000/auth/login \
+POST /auth/login: Iniciar sesión y obtener un JWT.curl -X POST http://localhost:5000/auth/login \
 -H "Content-Type: application/json" \
 -d '{"email":"vjuanjose@gmail.com","password":"juanjuan123"}'
 
 
-POST /auth/logout: Cerrar sesión y eliminar la cookie JWT.curl -X POST http://0.0.0.0:5000/auth/logout
+POST /auth/logout: Cerrar sesión y eliminar la cookie JWT.curl -X POST http://localhost:5000/auth/logout
 
 
-GET /users/profile: Obtener el perfil del usuario autenticado.curl -X GET http://0.0.0.0:5000/users/profile \
+GET /users/profile: Obtener el perfil del usuario autenticado.curl -X GET http://localhost:5000/users/profile \
 -H "Cookie: token=your_jwt_token"
 
 
-PUT /users/profile: Actualizar el perfil del usuario autenticado.curl -X PUT http://0.0.0.0:5000/users/profile \
+PUT /users/profile: Actualizar el perfil del usuario autenticado.curl -X PUT http://localhost:5000/users/profile \
 -H "Content-Type: application/json" \
 -H "Cookie: token=your_jwt_token" \
 -d '{"username":"JuanNuevo","email":"nuevo@email.com"}'
@@ -118,7 +118,7 @@ cors: Configurado para permitir solo el origen especificado en FRONTEND_URL.
 Pruebas
 
 Usa Postman o curl para probar los endpoints.
-Accede a http://0.0.0.0:5000/api-docs para interactuar con la API mediante Swagger UI.
+Accede a http://localhost:5000/api-docs para interactuar con la API mediante Swagger UI.
 Ejemplo de solicitud protegida:
 Inicia sesión para obtener un JWT.
 Usa el token en la cookie para acceder a /users/profile.
@@ -132,7 +132,7 @@ Error de validación: Revisa los logs en logs/error.log para errores de validaci
 Login falla: Asegúrate de que el email y la contraseña coincidan con los usados en el registro. Elimina y registra el usuario nuevamente si es necesario:mongo
 use Security_JJ
 db.users.deleteOne({ email: "vjuanjose@gmail.com" })
-curl -X POST http://0.0.0.0:5000/auth/register \
+curl -X POST http://localhost:5000/auth/register \
 -H "Content-Type: application/json" \
 -d '{"username":"Juan","email":"vjuanjose@gmail.com","password":"juanjuan123"}'
 
