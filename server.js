@@ -24,44 +24,9 @@ const app = express();
 // Validate environment variables
 validateEnv();
 
-// Security middleware
-app.use(helmet());
-app.use(mongoSanitize());
-app.use(xss());
-app.use(compression());
-
-// Global rate limiter (general protection)
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-});
-app.use(globalLimiter);
-
-// CSRF protection
-const csrfProtection = csrf({
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  },
-});
-app.use(cookieParser());
-app.use(csrfProtection);
-app.use((req, res, next) => {
-  res.cookie("XSRF-TOKEN", req.csrfToken(), {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  });
-  next();
-});
-
-// Body parser
-app.use(express.json({ limit: "10kb" }));
-
 // CORS configuration
 const allowedOrigins = [
-  process.env.FRONTEND_URL || "http://localhost:3001", // Frontend
+  process.env.FRONTEND_URL || "http://localhost:5173",
   "http://localhost:5003", // API de tareas
 ].filter(Boolean);
 
@@ -80,6 +45,43 @@ app.use(
   })
 );
 
+// Security middleware
+app.use(helmet());
+app.use(mongoSanitize());
+app.use(xss());
+app.use(compression());
+
+// Global rate limiter (general protection)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+});
+app.use(globalLimiter);
+
+// Cookies and CSRF protection
+app.use(cookieParser());
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  },
+});
+app.use(csrfProtection);
+
+// XSRF-TOKEN access to FrontEnd
+app.use((req, res, next) => {
+  res.cookie("XSRF-TOKEN", req.csrfToken(), {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+  next();
+});
+
+// Body parser
+app.use(express.json({ limit: "10kb" }));
+
 // Logging
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
@@ -95,6 +97,11 @@ connectDB();
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
+
+// Active security API
+app.get("/", (req, res) => {
+  res.status(200).json({ message: "API de seguridad activa" });
+});
 
 // Error handling middleware
 app.use(errorHandler);
