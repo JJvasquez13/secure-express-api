@@ -21,47 +21,12 @@ const swaggerDocument = yaml.load("./swagger.yaml");
 
 const app = express();
 
-// Validate environment variables
+// 1. Validar variables de entorno
 validateEnv();
 
-// Security middleware
-app.use(helmet());
-app.use(mongoSanitize());
-app.use(xss());
-app.use(compression());
-
-// Global rate limiter (general protection)
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-});
-app.use(globalLimiter);
-
-// CSRF protection
-const csrfProtection = csrf({
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  },
-});
-app.use(cookieParser());
-app.use(csrfProtection);
-app.use((req, res, next) => {
-  res.cookie("XSRF-TOKEN", req.csrfToken(), {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  });
-  next();
-});
-
-// Body parser
-app.use(express.json({ limit: "10kb" }));
-
-// CORS configuration
+// 2. CORS debe ir primero (antes de cualquier middleware que maneje cookies o CSRF)
 const allowedOrigins = [
-  process.env.FRONTEND_URL || "http://localhost:3001", // Frontend
+  process.env.FRONTEND_URL || "http://localhost:5173",
   "http://localhost:5003", // API de tareas
 ].filter(Boolean);
 
@@ -80,26 +45,70 @@ app.use(
   })
 );
 
-// Logging
+// 3. Middleware de seguridad
+app.use(helmet());
+app.use(mongoSanitize());
+app.use(xss());
+app.use(compression());
+
+// 4. Límite global de peticiones
+// const globalLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000,
+//   max: 100000,
+// });
+// app.use(globalLimiter);
+
+// 5. Cookies y CSRF (después de CORS)
+app.use(cookieParser());
+const csrfProtection = csrf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  },
+});
+app.use(csrfProtection);
+
+// 6. Enviar XSRF-TOKEN accesible al frontend
+app.use((req, res, next) => {
+  res.cookie("XSRF-TOKEN", req.csrfToken(), {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "strict",
+  });
+  next();
+});
+
+// 7. Body parser
+app.use(express.json({ limit: "10kb" }));
+
+// 8. Logging (solo en desarrollo)
 if (process.env.NODE_ENV === "development") {
   app.use(morgan("dev"));
 }
 
-// Hide X-Powered-By header
+// 9. Ocultar encabezado "X-Powered-By"
 app.disable("x-powered-by");
 
-// Connect to MongoDB
+// 10. Conexión a MongoDB
 connectDB();
 
-// Routes
+// 11. Documentación Swagger
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
+// 12. Rutas de autenticación y usuario
 app.use("/auth", authRoutes);
 app.use("/users", userRoutes);
 
-// Error handling middleware
+// 13. Ruta raíz para obtener XSRF-TOKEN
+app.get("/", (req, res) => {
+  res.status(200).json({ message: "API de seguridad activa" });
+});
+
+// 14. Middleware de manejo de errores
 app.use(errorHandler);
 
-// Start server
+// 15. Iniciar servidor
 const PORT = process.env.PORT || 5002;
 const HOST = "localhost";
 app.listen(PORT, HOST, () => {
