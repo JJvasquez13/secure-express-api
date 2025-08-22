@@ -28,6 +28,7 @@ validateEnv();
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
   "http://localhost:5003", // API de tareas
+  "http://localhost5000", // API de NutriBoost
 ].filter(Boolean);
 
 app.use(
