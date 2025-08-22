@@ -24,7 +24,7 @@ Git: Para clonar el repositorio (opcional).
 Instalación
 
 Clonar el repositorio (si usas Git):
-git clone https://github.com/JJvasquez13/secure-express-api
+git clone -b Dev https://github.com/JJvasquez13/secure-express-api
 cd secure-express-api
 
 
