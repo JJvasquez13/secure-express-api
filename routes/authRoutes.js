@@ -4,6 +4,7 @@ const {
   login,
   logout,
   refreshToken,
+  getCsrfToken, // Importa la nueva función
 } = require("../controllers/authController");
 const {
   validate,
@@ -14,6 +15,8 @@ const { loginLimiter } = require("../middleware/rateLimiter");
 const csrfProtection = require("../middleware/csrfMiddleware");
 
 const router = express.Router();
+
+router.get("/csrf-token", csrfProtection, getCsrfToken);
 
 router.post(
   "/register",

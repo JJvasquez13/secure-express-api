@@ -1,7 +1,7 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
-const Token = require("../models/Token"); // Import Token model
+const Token = require("../models/Token");
 const {
   generateToken,
   generateRefreshToken,
@@ -201,4 +201,8 @@ const refreshToken = async (req, res) => {
   }
 };
 
-module.exports = { register, login, logout, refreshToken };
+const getCsrfToken = (req, res) => {
+  res.json({ csrfToken: req.csrfToken() });
+};
+
+module.exports = { register, login, logout, refreshToken, getCsrfToken };

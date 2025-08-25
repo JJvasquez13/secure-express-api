@@ -27,8 +27,8 @@ validateEnv();
 // CORS configuration
 const allowedOrigins = [
   process.env.FRONTEND_URL || "http://localhost:5173",
-  "http://localhost:5003", // API de tareas
-  "http://localhost5000", // API de NutriBoost
+  "http://localhost:5003",
+  "http://localhost5000",
 ].filter(Boolean);
 
 app.use(
@@ -52,33 +52,15 @@ app.use(mongoSanitize());
 app.use(xss());
 app.use(compression());
 
-// Global rate limiter (general protection)
+// Global rate limiter
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
 });
 app.use(globalLimiter);
 
-// Cookies and CSRF protection
+// Cookies
 app.use(cookieParser());
-const csrfProtection = csrf({
-  cookie: {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  },
-});
-app.use(csrfProtection);
-
-// XSRF-TOKEN access to FrontEnd
-app.use((req, res, next) => {
-  res.cookie("XSRF-TOKEN", req.csrfToken(), {
-    httpOnly: false,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-  });
-  next();
-});
 
 // Body parser
 app.use(express.json({ limit: "10kb" }));
