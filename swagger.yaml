@@ -3,7 +3,7 @@ info:
   title: Secure Express API
   description: |
     A secure Express.js API with MongoDB, JWT authentication, CSRF protection, and rate limiting for user management. Refresh tokens are stored in MongoDB for secure validation.  
-    **CSRF Protection**: All POST, PUT, and DELETE requests require the `X-XSRF-TOKEN` header, which must match the `XSRF-TOKEN` cookie. To obtain the `XSRF-TOKEN` cookie, send a GET request to any endpoint (e.g., `GET /`). For testing in Postman, enable the cookie jar and extract the `XSRF-TOKEN` cookie value to use as the `X-XSRF-TOKEN` header.
+    **CSRF Protection**: All POST, PUT, and DELETE requests require the `X-XSRF-TOKEN` header, which must match the `XSRF-TOKEN` cookie. To obtain the `XSRF-TOKEN` cookie and token value, send a GET request to `/auth/csrf-token`. For testing in Postman, enable the cookie jar and extract the `XSRF-TOKEN` cookie value or use the JSON response `{ "XSRF-TOKEN": "<token>" }` to set the `X-XSRF-TOKEN` header.
   version: 1.0.0
 servers:
   - url: http://{host}:{port}/
@@ -13,8 +13,8 @@ servers:
         default: localhost
         description: Hostname or IP address of the device running the server
       port:
-        default: "5000"
-        description: Port defined in environment variable PORT or default 5000
+        default: "5002"
+        description: Port defined in environment variable PORT or default 5002
   - url: https://your-production-url/
     description: Production server
 components:
@@ -34,12 +34,13 @@ components:
       in: header
       name: X-XSRF-TOKEN
       description: |
-        CSRF token required for POST, PUT, DELETE requests. The value must match the `XSRF-TOKEN` cookie, which is set automatically in the response of any request (e.g., `GET /`).  
-        **How to obtain**: Send a `GET` request to any endpoint (e.g., `GET /`) to receive the `XSRF-TOKEN` cookie. Extract its value and include it as the `X-XSRF-TOKEN` header in mutating requests. In Postman, enable the cookie jar and use the `Cookies` tab to retrieve the `XSRF-TOKEN` value.  
+        CSRF token required for POST, PUT, DELETE requests. The value must match the `XSRF-TOKEN` cookie or the token returned in the JSON response from `GET /auth/csrf-token`.  
+        **How to obtain**: Send a `GET` request to `/auth/csrf-token` to receive the `XSRF-TOKEN` cookie and a JSON response `{ "XSRF-TOKEN": "<token>" }`. Use the JSON token value as the `X-XSRF-TOKEN` header in mutating requests.  
         **Example in Postman**:  
-        1. Send `GET http://localhost:5000/` to get the `XSRF-TOKEN` cookie.  
-        2. Copy the `XSRF-TOKEN` value from the `Cookies` tab.  
-        3. Add `X-XSRF-TOKEN: [value]` as a header in your POST/PUT/DELETE request.
+        1. Send `GET http://localhost:5002/auth/csrf-token` to get the `XSRF-TOKEN` cookie and JSON response.  
+        2. Copy the `XSRF-TOKEN` value from the JSON response.  
+        3. Add `X-XSRF-TOKEN: [value]` as a header in your POST/PUT/DELETE request.  
+        4. Ensure cookies (`_csrf` and `XSRF-TOKEN`) are sent with the request (enable cookie jar in Postman).
   schemas:
     User:
       type: object
@@ -65,7 +66,7 @@ components:
           example: error
         message:
           type: string
-          example: Something went wrong!
+          example: Error del servidor
         errors:
           type: array
           items:
@@ -131,12 +132,36 @@ components:
           description: New email address (optional).
           example: newemail@example.com
 paths:
+  /auth/csrf-token:
+    get:
+      summary: Get CSRF token
+      description: |
+        Retrieves a CSRF token required for POST, PUT, and DELETE requests. The response includes the token in a JSON object `{ "XSRF-TOKEN": "<token>" }` and sets the `XSRF-TOKEN` cookie. The `X-XSRF-TOKEN` header in subsequent requests must match this token.
+      tags:
+        - Authentication
+      responses:
+        "200":
+          description: CSRF token retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  XSRF-TOKEN:
+                    type: string
+                    description: The CSRF token to be used as the `X-XSRF-TOKEN` header.
+                    example: MjRnGHiI-y-phq5krRoviM6eghVmk8sI3028
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+                example: XSRF-TOKEN=MjRnGHiI-y-phq5krRoviM6eghVmk8sI3028; Path=/; SameSite=Lax
   /auth/register:
     post:
-      summary: Register a new user
+      summary: Registrar un nuevo usuario
       description: |
-        Creates a new user account, stores a refresh token in MongoDB, and returns a JWT and refresh token in HTTP-only cookies.  
-        **CSRF Requirement**: Include the `X-XSRF-TOKEN` header with the value of the `XSRF-TOKEN` cookie, obtained via a prior `GET` request (e.g., `GET /`).
+        Crea una nueva cuenta de usuario, almacena un refresh token en MongoDB y devuelve un JWT y un refresh token en cookies HTTP-only.  
+        **Requerimiento CSRF**: Incluye el header `X-XSRF-TOKEN` con el valor del token CSRF obtenido de `GET /auth/csrf-token`.
       tags:
         - Authentication
       security:
@@ -146,10 +171,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RegisterRequest'
+              $ref: "#/components/schemas/RegisterRequest"
       responses:
-        '201':
-          description: User registered successfully
+        "201":
+          description: Usuario registrado exitosamente
           content:
             application/json:
               schema:
@@ -162,39 +187,45 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/User'
+                        $ref: "#/components/schemas/User"
           headers:
             Set-Cookie:
               schema:
                 type: string
                 example: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=86400000; refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800000
-        '400':
-          description: Invalid input or email already exists
+        "400":
+          description: Entrada inválida o correo ya registrado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Invalid or missing CSRF token
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: El correo ya está registrado
+        "403":
+          description: Token CSRF inválido o ausente
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
                 example:
                   status: error
                   message: invalid csrf token
-        '500':
-          description: Server error
+        "500":
+          description: Error del servidor
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Error del servidor al registrar el usuario
   /auth/login:
     post:
-      summary: Log in a user
+      summary: Iniciar sesión
       description: |
-        Authenticates a user, stores a refresh token in MongoDB, and returns a JWT and refresh token in HTTP-only cookies.  
-        **CSRF Requirement**: Include the `X-XSRF-TOKEN` header with the value of the `XSRF-TOKEN` cookie, obtained via a prior `GET` request (e.g., `GET /`).
+        Autentica a un usuario, almacena un refresh token en MongoDB y devuelve un JWT y un refresh token en cookies HTTP-only.  
+        **Requerimiento CSRF**: Incluye el header `X-XSRF-TOKEN` con el valor del token CSRF obtenido de `GET /auth/csrf-token`.
       tags:
         - Authentication
       security:
@@ -204,10 +235,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: "#/components/schemas/LoginRequest"
       responses:
-        '200':
-          description: Login successful
+        "200":
+          description: Inicio de sesión exitoso
           content:
             application/json:
               schema:
@@ -220,45 +251,73 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/User'
+                        $ref: "#/components/schemas/User"
           headers:
             Set-Cookie:
               schema:
                 type: string
                 example: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=86400000; refreshToken=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800000
-        '400':
-          description: Invalid credentials or too many login attempts
+        "400":
+          description: Credenciales inválidas o entrada incorrecta
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Invalid or missing CSRF token
+                $ref: "#/components/schemas/Error"
+                examples:
+                  missingFields:
+                    value:
+                      status: error
+                      message: El correo y la contraseña son obligatorios
+                  invalidEmail:
+                    value:
+                      status: error
+                      message: El correo no es válido
+                  invalidPassword:
+                    value:
+                      status: error
+                      message: La contraseña es incorrecta
+        "404":
+          description: Correo no registrado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: El correo no está registrado
+        "403":
+          description: Token CSRF inválido o ausente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
                 example:
                   status: error
                   message: invalid csrf token
-        '429':
-          description: Too many login attempts
+        "429":
+          description: Demasiados intentos de inicio de sesión
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Server error
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Too many login attempts, please try again later
+        "500":
+          description: Error del servidor
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Error del servidor al iniciar sesión
   /auth/refresh-token:
     post:
-      summary: Refresh access token
+      summary: Renovar token de acceso
       description: |
-        Generates a new access token using a valid refresh token provided in the request body or `refreshToken` cookie, validated against MongoDB.  
-        **CSRF Requirement**: Include the `X-XSRF-TOKEN` header with the value of the `XSRF-TOKEN` cookie, obtained via a prior `GET` request (e.g., `GET /`).
+        Genera un nuevo token de acceso usando un refresh token válido proporcionado en el cuerpo de la solicitud o en la cookie `refreshToken`, validado contra MongoDB.  
+        **Requerimiento CSRF**: Incluye el header `X-XSRF-TOKEN` con el valor del token CSRF obtenido de `GET /auth/csrf-token`.
       tags:
         - Authentication
       security:
@@ -269,10 +328,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+              $ref: "#/components/schemas/RefreshTokenRequest"
       responses:
-        '200':
-          description: Token refreshed successfully
+        "200":
+          description: Token renovado exitosamente
           content:
             application/json:
               schema:
@@ -285,46 +344,71 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/User'
+                        $ref: "#/components/schemas/User"
           headers:
             Set-Cookie:
               schema:
                 type: string
                 example: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=86400000
-        '401':
-          description: Invalid or expired refresh token
+        "401":
+          description: Refresh token inválido o expirado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Invalid or missing CSRF token
+                $ref: "#/components/schemas/Error"
+                examples:
+                  noRefreshToken:
+                    value:
+                      status: error
+                      message: No se proporcionó un refresh token
+                  invalidRefreshToken:
+                    value:
+                      status: error
+                      message: Refresh token inválido o expirado
+                  tokenNotFound:
+                    value:
+                      status: error
+                      message: Refresh token no encontrado
+        "404":
+          description: Usuario no encontrado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Usuario no encontrado
+        "403":
+          description: Token CSRF inválido o ausente
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
                 example:
                   status: error
                   message: invalid csrf token
-        '500':
-          description: Server error
+        "500":
+          description: Error del servidor
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Error del servidor al renovar el token
   /auth/logout:
     post:
-      summary: Log out a user
+      summary: Cerrar sesión
       description: |
-        Clears the JWT and refresh token cookies and removes the refresh token from MongoDB.  
-        **CSRF Requirement**: Include the `X-XSRF-TOKEN` header with the value of the `XSRF-TOKEN` cookie, obtained via a prior `GET` request (e.g., `GET /`).
+        Limpia las cookies de JWT y refresh token y elimina el refresh token de MongoDB.  
+        **Requerimiento CSRF**: Incluye el header `X-XSRF-TOKEN` con el valor del token CSRF obtenido de `GET /auth/csrf-token`.
       tags:
         - Authentication
       security:
         - csrfToken: []
       responses:
-        '200':
-          description: Logout successful
+        "200":
+          description: Sesión cerrada exitosamente
           content:
             application/json:
               schema:
@@ -335,38 +419,41 @@ paths:
                     example: success
                   message:
                     type: string
-                    example: Logged out successfully
+                    example: Sesión cerrada correctamente
           headers:
             Set-Cookie:
               schema:
                 type: string
                 example: token=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; refreshToken=; HttpOnly; Secure; SameSite=Strict; Max-Age=0
-        '403':
-          description: Invalid or missing CSRF token
+        "403":
+          description: Token CSRF inválido o ausente
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
                 example:
                   status: error
                   message: invalid csrf token
-        '500':
-          description: Server error
+        "500":
+          description: Error del servidor
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Error del servidor al cerrar sesión
   /users/profile:
     get:
-      summary: Get user profile
-      description: Retrieves the authenticated user's profile using the JWT in the `token` cookie.
+      summary: Obtener perfil de usuario
+      description: Recupera el perfil del usuario autenticado usando el JWT en la cookie `token`.
       tags:
         - User
       security:
         - cookieAuth: []
       responses:
-        '200':
-          description: User profile retrieved successfully
+        "200":
+          description: Perfil de usuario recuperado exitosamente
           content:
             application/json:
               schema:
@@ -379,30 +466,39 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/User'
-        '401':
-          description: Not authorized
+                        $ref: "#/components/schemas/User"
+        "401":
+          description: No autorizado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '404':
-          description: User not found
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: No autorizado
+        "404":
+          description: Usuario no encontrado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Server error
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Usuario no encontrado
+        "500":
+          description: Error del servidor
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Error del servidor
     put:
-      summary: Update user profile
+      summary: Actualizar perfil de usuario
       description: |
-        Updates the authenticated user's username or email using the JWT in the `token` cookie.  
-        **CSRF Requirement**: Include the `X-XSRF-TOKEN` header with the value of the `XSRF-TOKEN` cookie, obtained via a prior `GET` request (e.g., `GET /`).
+        Actualiza el nombre de usuario o correo del usuario autenticado usando el JWT en la cookie `token`.  
+        **Requerimiento CSRF**: Incluye el header `X-XSRF-TOKEN` con el valor del token CSRF obtenido de `GET /auth/csrf-token`.
       tags:
         - User
       security:
@@ -413,10 +509,10 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUserRequest'
+              $ref: "#/components/schemas/UpdateUserRequest"
       responses:
-        '200':
-          description: Profile updated successfully
+        "200":
+          description: Perfil actualizado exitosamente
           content:
             application/json:
               schema:
@@ -429,37 +525,49 @@ paths:
                     type: object
                     properties:
                       user:
-                        $ref: '#/components/schemas/User'
-        '400':
-          description: Invalid input
+                        $ref: "#/components/schemas/User"
+        "400":
+          description: Entrada inválida
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Not authorized
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Entrada inválida
+        "401":
+          description: No autorizado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '403':
-          description: Invalid or missing CSRF token
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: No autorizado
+        "403":
+          description: Token CSRF inválido o ausente
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
                 example:
                   status: error
                   message: invalid csrf token
-        '404':
-          description: User not found
+        "404":
+          description: Usuario no encontrado
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
-        '500':
-          description: Server error
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Usuario no encontrado
+        "500":
+          description: Error del servidor
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Error"
+                example:
+                  status: error
+                  message: Error del servidor

@@ -1,31 +1,31 @@
 const User = require("../models/User");
+const { ApiError } = require("../utils/errorHandler");
 
-const getUserProfile = async (req, res) => {
+// @desc    Get user profile
+// @route   GET /api/users/profile
+const getUserProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user.id).select("-password");
     if (!user) {
-      return res
-        .status(404)
-        .json({ status: "error", message: "User not found" });
+      throw new ApiError(404, "User not found");
     }
     res.status(200).json({ status: "success", data: { user } });
   } catch (error) {
-    res.status(500).json({ status: "error", message: "Server error" });
+    next(error);
   }
 };
 
-const updateUserProfile = async (req, res) => {
+// @desc    Update user profile
+// @route   PUT /api/users/profile
+const updateUserProfile = async (req, res, next) => {
   try {
     const { username, email } = req.body;
     const user = await User.findById(req.user.id);
 
     if (!user) {
-      return res
-        .status(404)
-        .json({ status: "error", message: "User not found" });
+      throw new ApiError(404, "User not found");
     }
 
-    // Update fields
     if (username) user.username = username;
     if (email) user.email = email;
 
@@ -38,7 +38,7 @@ const updateUserProfile = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({ status: "error", message: "Server error" });
+    next(error);
   }
 };
 
